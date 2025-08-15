@@ -9,7 +9,7 @@ app = FastAPI(title="KittenTTS API")
 tts = TTS()
 
 @app.post("/speak")
-async def speak(text: str = Form(...), background_tasks: BackgroundTasks):
+async def speak(background_tasks: BackgroundTasks, text: str = Form(...)):
     audio_bytes = await to_thread(tts.speak, text)
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
