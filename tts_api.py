@@ -4,6 +4,8 @@ from kittentts import KittenTTS
 import tempfile
 import os
 from asyncio import to_thread
+import numpy as np
+import soundfile as sf
 
 app = FastAPI(title="KittenTTS API")
 
@@ -20,13 +22,29 @@ async def speak(
         raise HTTPException(status_code=400, detail="Text input cannot be empty.")
 
     try:
-        audio = await to_thread(tts.generate, text, voice=voice)
+        raw_audio = await to_thread(tts.generate, text, voice=voice)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"TTS engine error: {str(e)}")
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-        tmp.write(audio)
-        tmp_path = tmp.name
+    # Detect format and convert safely
+    if isinstance(raw_audio, np.ndarray):
+        pcm_array = raw_audio
+    elif isinstance(raw_audio, bytes):
+        # Assuming float32 PCM from KittenTTS; update if model changes
+        pcm_array = np.frombuffer(raw_audio, dtype=np.float32)
+    else:
+        raise HTTPException(status_code=500, detail="Unknown audio format")
+
+    # Convert float32 to int16 if needed
+    if pcm_array.dtype == np.float32:
+        pcm_array = (pcm_array * 32767).astype(np.int16)
+
+    # Get sample rate from model metadata (if available)
+    sample_rate = getattr(tts, "sample_rate", 24000)  # fallback to 24000
+
+    # Save as proper WAV
+    tmp_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
+    sf.write(tmp_path, pcm_array, samplerate=sample_rate)
 
     background_tasks.add_task(os.remove, tmp_path)
 
