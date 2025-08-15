@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Form, BackgroundTasks
 from fastapi.responses import FileResponse
-from kitten_tts import TTS
+from kittentts import TTS
 import tempfile
 import os
 from asyncio import to_thread
